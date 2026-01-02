@@ -7,7 +7,9 @@ export default defineConfig({
   server: {
     // --- ADD THIS LINE ---
     port: 5174, // This will run your app on http://localhost:5174
-
+    host: true,
+    allowedHosts: 'all',
+  
     // Your existing proxy configuration
     proxy: {
       '/api': {

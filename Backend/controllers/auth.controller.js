@@ -145,8 +145,6 @@ const signin = async (req, res) => {
   }
 
   try {
-    
-
     // 🔹 Real users → check DB + OTP flow
     const user = await User.findOne({ email });
     if (!user) {

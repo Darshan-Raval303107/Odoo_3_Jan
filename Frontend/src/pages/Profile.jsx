@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, MapPin, Briefcase, Calendar, Edit, Save, X, Camera, Settings, Shield, Award, Globe } from 'lucide-react';
+import api from '../services/api';
 
 const GearGuardProfile = () => {
   const navigate = useNavigate();
@@ -13,11 +14,6 @@ const GearGuardProfile = () => {
   const [formData, setFormData] = useState({});
   const [avatarPreview, setAvatarPreview] = useState('');
   const avatarFileRef = useRef(null);
-
-  const getAuthHeader = () => {
-    const token = localStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
 
   const handleEdit = () => {
     setFormData({
@@ -51,43 +47,28 @@ const GearGuardProfile = () => {
     setIsSaving(true);
     try {
       // Update profile fields first
-      const res = await fetch('/api/profile/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phoneNumber: formData.phoneNumber,
-          gender: formData.gender,
-        }),
+      const { data: updated } = await api.put('/profile/me', {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        gender: formData.gender,
       });
-      if (!res.ok) throw new Error('Failed to update profile');
-      const updated = await res.json();
 
       // If avatar file selected, upload it
       if (avatarFileRef.current && avatarFileRef.current.files && avatarFileRef.current.files[0]) {
         const file = avatarFileRef.current.files[0];
         const form = new FormData();
         form.append('avatar', file);
-        const avatarRes = await fetch('/api/profile/avatar', {
-          method: 'PUT',
-          headers: { ...getAuthHeader() },
-          body: form,
+        const { data: avatarData } = await api.put('/profile/avatar', form, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
         });
-        if (!avatarRes.ok) {
-          console.warn('Avatar upload failed');
-        } else {
-          const avatarJson = await avatarRes.json();
-          updated.avatar = avatarJson.avatar || updated.avatar;
-        }
+        updated.avatar = avatarData.avatar || updated.avatar;
       }
 
-      // Normalize avatar URL for dev server (backend serves /uploads)
-      if (updated.avatar && updated.avatar.startsWith('/uploads')) {
-        updated.avatar = `${window.location.protocol}//${window.location.hostname}:5000${updated.avatar}`;
-      }
-      setAvatarPreview(updated.avatar || avatarPreview);
+      setAvatarPreview(updated.avatar ? `/api${updated.avatar}`: avatarPreview);
       setUserData(updated);
       setEditMode(false);
       setShowSuccess(true);
@@ -114,22 +95,17 @@ const GearGuardProfile = () => {
   const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/profile/me', { headers: { ...getAuthHeader() } });
-      if (!res.ok) throw new Error('Failed to load profile');
-      const data = await res.json();
-      // If avatar is a server-relative path, prefix with backend origin for dev
-      if (data.avatar && data.avatar.startsWith('/uploads')) {
-        data.avatar = `${window.location.protocol}//${window.location.hostname}:5000${data.avatar}`;
-      }
+      const { data } = await api.get('/profile/me');
       setUserData(data);
-      setAvatarPreview(data.avatar || 'https://images.unsplash.com/photo-1472099645785-5658ab4ff4e?w=400&h=400&fit=crop');
+      if (data.avatar) {
+        setAvatarPreview(`/api${data.avatar}`);
+      } else {
+        setAvatarPreview('https://images.unsplash.com/photo-1472099645785-5658ab4ff4e?w=400&h=400&fit=crop');
+      }
 
       // load activity
-      const actRes = await fetch('/api/profile/activity', { headers: { ...getAuthHeader() } });
-      if (actRes.ok) {
-        const acts = await actRes.json();
-        setActivity(acts);
-      }
+      const { data: acts } = await api.get('/profile/activity');
+      setActivity(acts);
     } catch (err) {
       console.error(err);
     } finally {
@@ -144,7 +120,7 @@ const GearGuardProfile = () => {
   const handleLogout = async () => {
     try {
       // optional: call server logout endpoint if you have one
-      // await fetch('/api/auth/logout', { method: 'POST', headers: getAuthHeader() });
+      // await api.post('/auth/logout');
     } catch (err) {
       console.error('Logout error:', err);
       // ignore errors during logout

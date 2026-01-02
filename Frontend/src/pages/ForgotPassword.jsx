@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { toast } from 'react-toastify';
 import { FaEnvelope, FaKey, FaLock, FaArrowLeft } from 'react-icons/fa';
+import api from '../services/api';
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState('');
@@ -23,12 +24,8 @@ const ForgotPassword = () => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            const res = await fetch('http://localhost:5000/api/otp/request-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
-            const data = await res.json();
+            const res = await api.post('/otp/request-otp', { email });
+            const data = res.data;
             if (data.success) {
                 toast.success(data.message);
                 setStep(2);
@@ -37,7 +34,7 @@ const ForgotPassword = () => {
             }
         } catch (error) {
             console.error('Error sending OTP:', error);
-            toast.error('An error occurred. Please try again.');
+            toast.error(error.response?.data?.message || 'An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -48,12 +45,8 @@ const ForgotPassword = () => {
         setIsLoading(true);
         const finalOtp = otp.join('');
         try {
-            const res = await fetch('http://localhost:5000/api/otp/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, otp: finalOtp }),
-            });
-            const data = await res.json();
+            const res = await api.post('/otp/verify-otp', { email, otp: finalOtp });
+            const data = res.data;
             if (data.success) {
                 toast.success(data.message);
                 setStep(3);
@@ -62,7 +55,7 @@ const ForgotPassword = () => {
             }
         } catch (error) {
             console.error('Error verifying OTP:', error);
-            toast.error('An error occurred. Please try again.');
+            toast.error(error.response?.data?.message || 'An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -72,12 +65,8 @@ const ForgotPassword = () => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            const res = await fetch('http://localhost:5000/api/otp/change-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, newPassword }),
-            });
-            const data = await res.json();
+            const res = await api.post('/otp/change-password', { email, newPassword });
+            const data = res.data;
             if (data.success) {
                 toast.success(data.message);
                 navigate('/signin');
@@ -86,7 +75,7 @@ const ForgotPassword = () => {
             }
         } catch (error) {
             console.error('Error changing password:', error);
-            toast.error('An error occurred. Please try again.');
+            toast.error(error.response?.data?.message || 'An error occurred. Please try again.');
         } finally {
             setIsLoading(false);
         }
