@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Route, Routes, Navigate, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Route, Routes, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// Import all your page components
 import LandingPage from './pages/Landing';
 import SignUp from './pages/SignUp';
 import SignIn from './pages/Login';
@@ -13,81 +12,20 @@ import ActivityPage from './pages/Activity';
 import ForgotPassword from './pages/ForgotPassword';
 import AuthCallback from './pages/AuthCallback';
 import VerifyOtp from './pages/VerifyOtp';
-import Header from './components/common/Navbar';
+import useAuth from './hooks/useAuth';
 
-// Your PrivateRoute component remains the same
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    return children;
-  }
-  return <Navigate to="/signin" />;
+  return token ? children : <Navigate to="/signin" />;
 };
 
-// Landing route that redirects authenticated users to dashboard
 const LandingRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    return <Navigate to="/dashboard" />;
-  }
-  return children;
+  return token ? <Navigate to="/dashboard" /> : children;
 };
 
-
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const token = localStorage.getItem('token');
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlToken = urlParams.get('token');
-
-      if (urlToken) {
-        // Token from OAuth redirect
-        localStorage.setItem('token', urlToken);
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-
-      const finalToken = urlToken || token;
-
-      if (finalToken) {
-        try {
-          const response = await fetch('http://localhost:5000/api/profile/me', {
-            headers: {
-              'Authorization': `Bearer ${finalToken}`
-            }
-          });
-
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData);
-          } else {
-            // Handle unauthorized or other errors
-            localStorage.removeItem('token');
-            setUser(null);
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          localStorage.removeItem('token');
-          setUser(null);
-        }
-      }
-      setLoading(false);
-    };
-
-    fetchUserData();
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    navigate('/');
-  };
+  const { user, loading, handleLogout } = useAuth();
 
   if (loading) {
     return <div>Loading...</div>;
@@ -107,10 +45,7 @@ function App() {
         pauseOnHover
       />
       <Routes>
-        {/* The LandingPage component is now used for the root path */}
         <Route path="/" element={<LandingRoute><LandingPage /></LandingRoute>} />
-
-        {/* Your other routes remain the same */}
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
@@ -122,13 +57,12 @@ function App() {
         />
         <Route
           path="/profile"
-          element={<PrivateRoute user={user} onLogout={handleLogout}><Profile user={user} onLogout={handleLogout} /></PrivateRoute>}
+          element={<PrivateRoute><Profile user={user} onLogout={handleLogout} /></PrivateRoute>}
         />
         <Route
           path="/activity"
-          element={<PrivateRoute user={user} onLogout={handleLogout}><ActivityPage /></PrivateRoute>}
+          element={<PrivateRoute><ActivityPage /></PrivateRoute>}
         />
-        {/* A catch-all route to redirect unknown paths back to the home page */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </>

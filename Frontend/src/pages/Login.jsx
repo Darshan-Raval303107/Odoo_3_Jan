@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Wrench, Eye, EyeOff, Loader, CheckCircle, AlertCircle, Shield } from 'lucide-react';
+import api from '../services/api';
 
 const GearGuardAuth = () => {
   const navigate = useNavigate();
@@ -76,13 +77,65 @@ const GearGuardAuth = () => {
     setErrorMessage('');
   };
 
+  const handleSignIn = async () => {
+    try {
+      const response = await api.post('/auth/signin', {
+        email: formData.email,
+        password: formData.password,
+      });
+
+      const data = response.data;
+        
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+        setSuccessMessage('Welcome back! Redirecting to dashboard...');
+        
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      } else if (data.message === 'OTP sent to your email') {
+        setSuccessMessage('OTP sent to your email. Redirecting to verification...');
+        setTimeout(() => {
+          navigate('/verify-otp', { state: { email: formData.email } });
+        }, 1000);
+      } else {
+        throw new Error('Unexpected response from server');
+      }
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || error.message || 'An error occurred. Please try again.');
+    }
+  };
+
+  const handleSignUp = async () => {
+    try {
+      await api.post('/auth/signup', {
+        username: formData.username,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      setSuccessMessage('Account created successfully! Please sign in.');
+      setTimeout(() => {
+        setIsSignUp(false);
+        setSuccessMessage('');
+        setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
+      }, 2000);
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || error.message || 'Sign up failed');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMessage('');
     setSuccessMessage('');
 
-    // Validation
     if (isSignUp) {
       if (formData.password !== formData.confirmPassword) {
         setErrorMessage('Passwords do not match');
@@ -94,89 +147,11 @@ const GearGuardAuth = () => {
         setIsSubmitting(false);
         return;
       }
+      await handleSignUp();
+    } else {
+      await handleSignIn();
     }
-
-    // API call
-    try {
-      if (isSignUp) {
-        // TODO: Replace with actual signup API call
-        const response = await fetch('http://localhost:5000/api/auth/signup', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            username: formData.username,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            email: formData.email,
-            password: formData.password,
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Sign up failed');
-        }
-
-        setSuccessMessage('Account created successfully! Please sign in.');
-        setTimeout(() => {
-          setIsSignUp(false);
-          setSuccessMessage('');
-          setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
-        }, 2000);
-      } else {
-        // Sign in API call
-        const response = await fetch('http://localhost:5000/api/auth/signin', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-          }),
-        });
-
-        if (!response.ok) {
-          let error;
-          try {
-            error = await response.json();
-          } catch (e) {
-            error = { message: 'Sign in failed' };
-          }
-          throw new Error(error.message || 'Sign in failed');
-        }
-
-        const data = await response.json();
-        
-        // Check if OTP is required or direct login
-        if (data.token) {
-          // Direct login (test user or Google signin)
-          localStorage.setItem('token', data.token);
-          if (data.user) {
-            localStorage.setItem('user', JSON.stringify(data.user));
-          }
-          setSuccessMessage('Welcome back! Redirecting to dashboard...');
-          
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 1000);
-        } else if (data.message === 'OTP sent to your email') {
-          // OTP required - redirect to OTP verification
-          setSuccessMessage('OTP sent to your email. Redirecting to verification...');
-          setTimeout(() => {
-            navigate('/verify-otp', { state: { email: formData.email } });
-          }, 1000);
-        } else {
-          throw new Error('Unexpected response from server');
-        }
-      }
-    } catch (error) {
-      setErrorMessage(error.message || 'An error occurred. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    setIsSubmitting(false);
   };
 
   return (
@@ -494,7 +469,7 @@ const GearGuardAuth = () => {
             {/* Social Login */}
             <button
               type="button"
-              onClick={() => window.location.href = 'http://localhost:5000/api/auth/google'}
+              onClick={() => window.location.href = '/api/auth/google'}
               className="w-full py-3 bg-white hover:bg-gray-50 text-slate-700 font-medium rounded-lg transition-all duration-300 flex items-center justify-center gap-3 border border-slate-300"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">

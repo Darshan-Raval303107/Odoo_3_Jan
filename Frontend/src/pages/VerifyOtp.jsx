@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
+import api from '../services/api';
 
 const VerifyOtp = () => {
     const [otp, setOtp] = useState('');
@@ -32,17 +33,8 @@ const VerifyOtp = () => {
         setErrorMessage('');
 
         try {
-            const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, otp }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'OTP verification failed');
-            }
+            const response = await api.post('/auth/verify-otp', { email, otp });
+            const data = response.data;
 
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
@@ -50,7 +42,7 @@ const VerifyOtp = () => {
             navigate('/dashboard');
 
         } catch (error) {
-            setErrorMessage(error.message);
+            setErrorMessage(error.response?.data?.message || error.message || 'OTP verification failed');
         } finally {
             setIsSubmitting(false);
         }
