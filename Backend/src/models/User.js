@@ -1,114 +1,91 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 const bcrypt = require('bcryptjs');
 
-const UserSchema = new mongoose.Schema({
-    username: {
-        type: String,
-        required: false,
-        trim: true,
-        unique: true,
-        sparse: true,
-    },
-    firstName: {
-        type: String,
-        required: false, // Make optional for OAuth users
-        trim: true,
-    },
-    lastName: {
-        type: String,
-        required: false, // Make optional for OAuth users
-        trim: true,
-    },
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true,
-        trim: true,
-        match: [/\S+@\S+\.\S+/, 'Please enter a valid email address'],
-    },
-    password: {
-        type: String,
-        required: false, // Make optional for OAuth users
-        minlength: 6,
-    },
-    phoneNumber: {
-        type: String,
-        required: false,
-        trim: true,
-    },
-    gender: {
-        type: String,
-        required: false,
-        trim: true,
-    },
-    appwriteId: {
-        type: String,
-        unique: true,
-        sparse: true, // Allow multiple null values
-    },
-    avatar: {
-        type: String,
-        required: false,
-        default: '',
-    },
-    githubId: {
-        type: String,
-        unique: true,
-        sparse: true,
-    },
-    location: {
-        type: String,
-        required: false,
-        trim: true,
-    },
-    occupation: {
-        type: String,
-        required: false,
-        trim: true,
-    },
-    bio: {
-        type: String,
-        required: false,
-        trim: true,
-        maxlength: 500,
-    },
-    // Password reset fields
-    resetPasswordToken: {
-        type: String,
-        required: false,
-    },
-    resetPasswordExpires: {
-        type: Date,
-        required: false,
-    },
+const userSchema = new Schema({
+  company: {
+    type: Schema.Types.ObjectId,
+    ref: 'Company',
+    required: true,
+  },
+  fullName: {
+    type: String,
+    required: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true,
+  },
+  phone: {
+    type: String,
+  },
+  role: {
+    type: String,
+    enum: ['ADMIN', 'HR', 'EMPLOYEE'],
+    required: true,
+  },
+  loginId: {
+    type: String,
+    unique: true,
+    index: true,
+  },
+  password: {
+    type: String,
+    required: true,
+  },
+  jobPosition: {
+    type: String,
+  },
+  department: {
+    type: String,
+  },
+  manager: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  location: {
+    type: String,
+  },
+  dateOfJoining: {
+    type: Date,
+  },
+  isFirstLogin: {
+    type: Boolean,
+    default: true,
+  },
+  profileImage: {
+    type: String,
+  },
+  status: {
+    type: String,
+    enum: ['ACTIVE', 'INACTIVE'],
+    default: 'ACTIVE',
+  },
 }, {
-    timestamps: true // Adds createdAt and updatedAt
+  timestamps: true,
 });
 
-// 🔒 Hash password before saving (only if password exists)
-UserSchema.pre('save', async function (next) {
-    if (!this.isModified('password') || !this.password) return next();
-    try {
-        const salt = await bcrypt.genSalt(10);
-        this.password = await bcrypt.hash(this.password, salt);
-        next();
-    } catch (err) {
-        next(err);
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+// Auto-generate loginId
+userSchema.pre('save', function(next) {
+    if (!this.loginId) {
+        // Simple example: use a portion of the user's name and a random number
+        const namePart = this.fullName.split(' ')[0].toLowerCase();
+        const randomPart = Math.floor(1000 + Math.random() * 9000);
+        this.loginId = `${namePart}${randomPart}`;
     }
+    next();
 });
 
-// 🔑 Method to compare entered password with hashed one
-UserSchema.methods.matchPassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
-};
 
-// Generate password reset token
-UserSchema.methods.generatePasswordResetToken = function() {
-    const resetToken = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
-    this.resetPasswordToken = resetToken;
-    this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-    return resetToken;
-};
-
-module.exports = mongoose.model('User', UserSchema);
+module.exports = mongoose.model('User', userSchema);
